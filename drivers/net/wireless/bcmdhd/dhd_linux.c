@@ -478,21 +478,19 @@ static int dhd_sleep_pm_callback(struct notifier_block *nfb, unsigned long actio
 {
 	int ret = NOTIFY_DONE;
 
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 39))
-	switch (action) {
+	switch (action)	{
 		case PM_HIBERNATION_PREPARE:
 		case PM_SUSPEND_PREPARE:
 			dhd_mmc_suspend = TRUE;
-			ret = NOTIFY_OK;
+		ret = NOTIFY_OK;
 		break;
 		case PM_POST_HIBERNATION:
 		case PM_POST_SUSPEND:
 			dhd_mmc_suspend = FALSE;
-			ret = NOTIFY_OK;
+		ret = NOTIFY_OK;
 		break;
 	}
 	smp_mb();
-#endif
 	return ret;
 }
 
@@ -525,7 +523,9 @@ static void dhd_set_packet_filter(int value, dhd_pub_t *dhd)
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 {
+#ifndef CONFIG_MACH_P1
 	int power_mode = PM_MAX;
+#endif
 	/* wl_pkt_filter_enable_t	enable_parm; */
 	char iovbuf[32];
 	int bcn_li_dtim = 3;
@@ -540,8 +540,10 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 				/* Kernel suspended */
 				DHD_ERROR(("%s: force extra Suspend setting \n", __FUNCTION__));
 
+#ifndef CONFIG_MACH_P1
 				dhd_wl_ioctl_cmd(dhd, WLC_SET_PM, (char *)&power_mode,
 				                 sizeof(power_mode), TRUE, 0);
+#endif
 
 				/* Enable packet filter, only allow unicast packet to send up */
 				dhd_set_packet_filter(1, dhd);
@@ -564,9 +566,11 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 				/* Kernel resumed  */
 				DHD_TRACE(("%s: Remove extra suspend setting \n", __FUNCTION__));
 
+#ifndef CONFIG_MACH_P1
 				power_mode = PM_FAST;
 				dhd_wl_ioctl_cmd(dhd, WLC_SET_PM, (char *)&power_mode,
 				                 sizeof(power_mode), TRUE, 0);
+#endif
 
 				/* disable pkt filter */
 				dhd_set_packet_filter(0, dhd);
@@ -2315,7 +2319,6 @@ dhd_open(struct net_device *net)
 #endif
 	int ifidx;
 	int32 ret = 0;
-
 	DHD_OS_WAKE_LOCK(&dhd->pub);
 	/* Update FW path if it was changed */
 	if ((firmware_path != NULL) && (firmware_path[0] != '\0')) {
@@ -4512,31 +4515,6 @@ int dhd_os_wake_unlock(dhd_pub_t *pub)
 		spin_unlock_irqrestore(&dhd->wakelock_spinlock, flags);
 	}
 	return ret;
-}
-
-int dhd_os_check_wakelock(void *dhdp)
-{
-#ifdef CONFIG_HAS_WAKELOCK
-	dhd_pub_t *pub = (dhd_pub_t *)dhdp;
-	dhd_info_t *dhd;
-
-	if (!pub)
-		return 0;
-	dhd = (dhd_info_t *)(pub->info);
-
-	if (dhd && wake_lock_active(&dhd->wl_wifi))
-		return 1;
-#endif
-	return 0;
-}
-
-int dhd_os_check_if_up(void *dhdp)
-{
-	dhd_pub_t *pub = (dhd_pub_t *)dhdp;
-
-	if (!pub)
-		return 0;
-	return pub->up;
 }
 
 int net_os_wake_unlock(struct net_device *dev)
